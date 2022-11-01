@@ -9,8 +9,8 @@
 /**
  * 
  */
-UCLASS()
-class AGE_DEMO_API UDA_StoryChapter : public UDataAsset
+UCLASS(BlueprintType)
+class AGE_DEMO_API UDA_StoryChapter : public UDataAsset 
 {
 	GENERATED_BODY()
 
@@ -20,10 +20,13 @@ class AGE_DEMO_API UDA_StoryChapter : public UDataAsset
 	UPROPERTY(EditAnywhere)
 	UStringTable* Lines;
 	
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	TArray<UTexture2D*> getImages() { return Images; }
 
-	UFUNCTION()
-	UStringTable* getLines() { return Lines; }
+	UFUNCTION(BlueprintCallable)
+	UStringTable* getScript() { return Lines; }
+
+	UFUNCTION(BlueprintCallable)
+	FText getLine(const FName TableID, FString Key) { return FText::FromStringTable(TableID, Key); }
 
 };
