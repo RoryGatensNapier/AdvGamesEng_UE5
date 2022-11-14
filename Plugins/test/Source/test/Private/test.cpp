@@ -30,11 +30,24 @@ FReply FtestModule::DirFunc()
 	dirText->SetText(FText::FromString(installDir));
 	bSetDirectory = true;
 	//auto the_cmd = *FString::Printf(TEXT("py '%s'"), installDir);
-	auto the_cmd = *FString::Printf(TEXT("%s/venv/Scripts"), *installDir);
 	//auto test = FString::Printf(TEXT("\"%s/webui-user.bat\""), *installDir);
-	auto test = FString::Printf(TEXT(".\\python.exe"));
-	auto params = FString::Printf(TEXT("--version"));
-	auto proc = FPlatformProcess::CreateProc(*test, *params, true, false, false, nullptr, 0, the_cmd, nullptr);
+	auto test = FString::Printf(TEXT("pip"));
+	auto params = FString::Printf(TEXT("list"));
+	void* testIn{ nullptr };
+	void* testOut{ nullptr };
+	verify(FPlatformProcess::CreatePipe(testIn, testOut));
+	auto proc = FPlatformProcess::CreateProc(*test, *params, false, false, false, nullptr, 0, nullptr, testOut, testIn);
+	if (proc.IsValid())
+	{
+		FString output;
+		while (FPlatformProcess::IsProcRunning(proc))
+		{
+			output += FPlatformProcess::ReadPipe(testIn);
+		}
+		FPlatformProcess::ClosePipe(testIn, testOut);
+		FPlatformProcess::CloseProc(proc);
+
+	}
 	//GEngine->Exec(nullptr, the_cmd, *GLog);
 	
 	return FReply::Handled();
