@@ -26,8 +26,17 @@ FReply FtestModule::DirFunc()
 		dsk->OpenDirectoryDialog(nullptr, FString("Stable Diffusion Path"), FString("C:"), out);
 	}
 	installDir = out;
+	char* cmd1 = TCHAR_TO_ANSI(*out);
 	dirText->SetText(FText::FromString(installDir));
 	bSetDirectory = true;
+	//auto the_cmd = *FString::Printf(TEXT("py '%s'"), installDir);
+	auto the_cmd = *FString::Printf(TEXT("%s/venv/Scripts"), *installDir);
+	//auto test = FString::Printf(TEXT("\"%s/webui-user.bat\""), *installDir);
+	auto test = FString::Printf(TEXT(".\\python.exe"));
+	auto params = FString::Printf(TEXT("--version"));
+	auto proc = FPlatformProcess::CreateProc(*test, *params, true, false, false, nullptr, 0, the_cmd, nullptr);
+	//GEngine->Exec(nullptr, the_cmd, *GLog);
+	
 	return FReply::Handled();
 }
 
@@ -46,6 +55,7 @@ FReply FtestModule::InitiateTXT2IMG()
 	{
 		UE_LOG(LogTemp, Log, TEXT("initiated txt2img process"));
 	}
+	return FReply::Handled();
 }
 
 void FtestModule::StartupModule()
