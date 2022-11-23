@@ -31,12 +31,12 @@ FReply FtestModule::DirFunc()
 	bSetDirectory = true;
 	//auto the_cmd = *FString::Printf(TEXT("py '%s'"), installDir);
 	//auto test = FString::Printf(TEXT("\"%s/webui-user.bat\""), *installDir);
-	auto test = FString::Printf(TEXT("pip"));
-	auto params = FString::Printf(TEXT("list"));
+	auto test = FString::Printf(TEXT("conda"));
+	auto params = FString::Printf(TEXT("run -n stylegan3 gen_images.py --outdir=out --trunc=1 --seeds=2 --network=https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-afhqv2-512x512.pkl"));
 	void* testIn{ nullptr };
 	void* testOut{ nullptr };
 	verify(FPlatformProcess::CreatePipe(testIn, testOut));
-	auto proc = FPlatformProcess::CreateProc(*test, *params, false, false, false, nullptr, 0, nullptr, testOut, testIn);
+	auto proc = FPlatformProcess::CreateProc(*test, *params, false, false, false, nullptr, 0, *installDir, testOut, testIn);
 	if (proc.IsValid())
 	{
 		FString output;
@@ -46,7 +46,7 @@ FReply FtestModule::DirFunc()
 		}
 		FPlatformProcess::ClosePipe(testIn, testOut);
 		FPlatformProcess::CloseProc(proc);
-
+		UE_LOG(LogTemp, Log, TEXT("%s"), *output);
 	}
 	//GEngine->Exec(nullptr, the_cmd, *GLog);
 	

@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "AI_Toolkit_Interface",
+	"Description": "A plugin to interface with select AI toolkits",
+	"Category": "Other",
+	"CreatedBy": "Rory Gatens",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": false,
+	"IsBetaVersion": true,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "AI_Toolkit_Interface",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		}
+	]
+}
