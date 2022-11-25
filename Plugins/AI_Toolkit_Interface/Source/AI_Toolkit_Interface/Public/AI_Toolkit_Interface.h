@@ -26,6 +26,8 @@ public:
 	FReply InitiateTXT2IMG();
 	void SetTXT2IMGPrompt(const FText&, ETextCommit::Type);
 	void SetVenvName(const FText&, ETextCommit::Type);
+	FString getBatchContents(FString Venv);
+	FReply generateEnvironmentBatchFile();
 	
 private:
 
@@ -39,8 +41,10 @@ private:
 	// Window slate elements
 	TSharedPtr<SButton> dirSearch;	//	Button to set directory for Stable Diffusion installation
 	TSharedPtr<STextBlock> dirText;	//	Directory string display
+	TSharedPtr<STextBlock> VenvText;	//	Directory string display
 	TSharedPtr<SEditableTextBox> txt2img_prompt;	//	Text input box for txt2img prompt
 	TSharedPtr<SButton> txt2img_btn;	// Button to initiate txt2img with prompt
+	TSharedPtr<SButton> genBatBtn;	// Button to initiate txt2img with prompt
 
 	// Install directory string
 	FString str_toolInstallDir{ FString("Directory not set!") };

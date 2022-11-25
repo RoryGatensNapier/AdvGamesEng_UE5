@@ -14,11 +14,39 @@ static const FName AI_Toolkit_InterfaceTabName("AI_Toolkit_Interface");
 
 #define LOCTEXT_NAMESPACE "FAI_Toolkit_InterfaceModule"
 
-FString getBatchContents(FString Venv) 
+FString FAI_Toolkit_InterfaceModule::getBatchContents(FString Venv)
 {
 	auto cmd = FString("call conda.bat activate ").Append(Venv);
-	auto cmd2 = FString::Printf(TEXT("call conda.bat activate %s\r\nfor /f \"delims=\" %%%%i in ('python --version') do set VARIABLE=%%%%i\r\necho %%VARIABLE%%\r\ncall conda deactivate\r\n"), *Venv);
+	auto innerCMD = FString::Printf(TEXT("\"%s\\optimizedSD\\optimized_txt2img.py\" --prompt \"a cat with a silly hat on sat upon a toadstool\" --H 512 --W 512 --seed 27 --n_iter 2 --n_samples 5 --ddim_steps 50"), *str_toolInstallDir);
+	auto cmd2 = FString::Printf(TEXT("call conda.bat activate %s\r\nfor /f \"delims=\" %%%%i in (\'python %s\') do set VARIABLE=%%%%i\r\necho %%VARIABLE%%\r\n"), *Venv, *innerCMD);
 	return cmd2;
+}
+
+FReply FAI_Toolkit_InterfaceModule::generateEnvironmentBatchFile()
+{
+	IPlatformFile& FileManager = FPlatformFileManager::Get().GetPlatformFile();
+	FString plugin_BatchFile_dir = FPaths::ConvertRelativePathToFull(FPaths::EnginePluginsDir()).Append("AI_Toolkit_Interface");
+	bool folderExists = FileManager.DirectoryExists(*plugin_BatchFile_dir);
+	if (!folderExists)
+	{
+		FileManager.CreateDirectory(*plugin_BatchFile_dir);
+	}
+	FString plugin_BatchFile_path = plugin_BatchFile_dir.Append("/aitoolkitinterface.bat");
+	//bool batchExists = FileManager.FileExists(*plugin_BatchFile_path);
+	//if (!batchExists)
+	//{
+	//	/*auto h = FileManager.OpenWrite(*plugin_BatchFile_path);
+	//	h->~IFileHandle();*/
+	//}
+	FFileHelper::SaveStringToFile(getBatchContents(str_currentVenv), *plugin_BatchFile_path);
+
+	str_batchFile_path = plugin_BatchFile_path;
+
+	FString dispTxt{ FString() };
+	dispTxt = FString::Printf(TEXT("Environment set to: %s - Batch file OK"), *str_currentVenv);
+	VenvText->SetText(FText::FromString(dispTxt));
+
+	return FReply::Handled();
 }
 
 FReply FAI_Toolkit_InterfaceModule::getUserDirectory()
@@ -34,22 +62,6 @@ FReply FAI_Toolkit_InterfaceModule::getUserDirectory()
 	char* cmd1 = TCHAR_TO_ANSI(*out);
 	dirText->SetText(FText::FromString(str_toolInstallDir));
 	bSetDirectory = true;
-	IPlatformFile& FileManager = FPlatformFileManager::Get().GetPlatformFile();
-	FString plugin_BatchFile_dir = FPaths::ConvertRelativePathToFull(FPaths::EnginePluginsDir()).Append("AI_Toolkit_Interface");
-	bool folderExists = FileManager.DirectoryExists(*plugin_BatchFile_dir);
-	if (!folderExists)
-	{
-		FileManager.CreateDirectory(*plugin_BatchFile_dir);
-	}
-	FString plugin_BatchFile_path = plugin_BatchFile_dir.Append("/aitoolkitinterface.bat");
-	bool batchExists = FileManager.FileExists(*plugin_BatchFile_path);
-	if (!batchExists)
-	{
-		FFileHelper::SaveStringToFile(getBatchContents(str_currentVenv), *plugin_BatchFile_path);
-		/*auto h = FileManager.OpenWrite(*plugin_BatchFile_path);
-		h->~IFileHandle();*/
-	}
-	str_batchFile_path = plugin_BatchFile_path;
 
 	return FReply::Handled();
 }
@@ -70,16 +82,20 @@ void FAI_Toolkit_InterfaceModule::SetTXT2IMGPrompt(const FText& InText, ETextCom
 
 void FAI_Toolkit_InterfaceModule::SetVenvName(const FText& InText, ETextCommit::Type CommitType)
 {
+	FString dispTxt{ FString() };
 	if ((CommitType == ETextCommit::OnEnter || CommitType == ETextCommit::OnUserMovedFocus) && !InText.IsEmpty())
 	{
 		str_currentVenv = InText.ToString();
+		dispTxt = FString::Printf(TEXT("Environment set to: %s - Please regenerate batchfile!"), *str_currentVenv);
 		bSetVenvName = true;
 	}
 	else if (InText.IsEmpty())
 	{
-		str_currentVenv = FString("Venv name not set!");
+		str_currentVenv = FString("");
+		dispTxt = FString::Printf(TEXT("Environment not set!"));
 		bSetVenvName = false;
 	}
+	VenvText->SetText(FText::FromString(dispTxt));
 }
 
 FReply FAI_Toolkit_InterfaceModule::InitiateTXT2IMG()
@@ -94,7 +110,7 @@ FReply FAI_Toolkit_InterfaceModule::InitiateTXT2IMG()
 		void* testOut{ nullptr };
 		FString plugin_BatchFile_dir = FPaths::ConvertRelativePathToFull(FPaths::EnginePluginsDir()).Append("AI_Toolkit_Interface");
 		verify(FPlatformProcess::CreatePipe(testIn, testOut));
-		auto proc = FPlatformProcess::CreateProc(*str_batchFile_path, /**params*/nullptr, false, false, false, nullptr, 0, /**plugin_BatchFile_dir*/nullptr, testOut, testIn);
+		auto proc = FPlatformProcess::CreateProc(*str_batchFile_path, /**params*/nullptr, false, false, false, nullptr, 0, *str_toolInstallDir, testOut, testIn);
 		if (proc.IsValid())
 		{
 			FString output;
@@ -102,8 +118,8 @@ FReply FAI_Toolkit_InterfaceModule::InitiateTXT2IMG()
 			{
 				output += FPlatformProcess::ReadPipe(testIn);
 			}
-			///FPlatformProcess::ClosePipe(testIn, testOut);
-			//FPlatformProcess::CloseProc(proc);
+			FPlatformProcess::ClosePipe(testIn, testOut);
+			FPlatformProcess::CloseProc(proc);
 			UE_LOG(LogTemp, Log, TEXT("%s"), *output);
 		}
 	}
@@ -170,6 +186,19 @@ TSharedRef<SDockTab> FAI_Toolkit_InterfaceModule::OnSpawnPluginTab(const FSpawnT
 						SAssignNew(txt2img_prompt, SEditableTextBox)
 						.HintText(FText(LOCTEXT("venvText", "Enter python venv name here.")))
 						.OnTextCommitted(FOnTextCommitted::CreateRaw(this, &FAI_Toolkit_InterfaceModule::SetVenvName))
+					]
+				+ SVerticalBox::Slot()
+					.HAlign(HAlign_Fill)
+					.VAlign(VAlign_Fill)
+					[
+						SAssignNew(VenvText, STextBlock)
+						.Text(FText::FromString(str_currentVenv))
+					]
+				+ SVerticalBox::Slot()
+					[
+						SAssignNew(genBatBtn, SButton)
+						.Text(FText(LOCTEXT("btnGenBatch", "Generate batch file")))
+						.OnClicked(FOnClicked::CreateRaw(this, &FAI_Toolkit_InterfaceModule::generateEnvironmentBatchFile))
 					]
 				+ SVerticalBox::Slot()
 					.HAlign(HAlign_Fill)
