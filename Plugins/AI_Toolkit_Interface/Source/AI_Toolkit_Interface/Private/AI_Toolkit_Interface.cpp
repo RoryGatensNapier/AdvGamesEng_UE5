@@ -17,9 +17,31 @@ static const FName AI_Toolkit_InterfaceTabName("AI_Toolkit_Interface");
 FString FAI_Toolkit_InterfaceModule::getBatchContents(FString Venv)
 {
 	//auto innerCMD = FString::Printf(TEXT("\"%s\\optimizedSD\\optimized_txt2img.py\" --prompt \"%s\" --H 512 --W 512 --seed 69 --n_iter 2 --n_samples 5 --ddim_steps 50"), *str_toolInstallDir, *str_txt2img_prompt);
-	auto innerCMD = FString::Printf(TEXT("\"%s\\optimizedSD\\optimized_txt2img.py\" %%*"), *str_toolInstallDir);
-	auto cmd2 = FString::Printf(TEXT("call conda.bat activate %s\r\nfor /f \"delims=\" %%%%i in (\'python %s\') do set VARIABLE=%%%%i\r\necho %%VARIABLE%%\r\n"), *Venv, *innerCMD);
+	auto cfg = FString::Printf(TEXT("for /f \"tokens=1,2 delims=\" %%%%i in (\'aitoolkitinterface.ini') do (\r\nif %%%%i==toolDirectory set _toolDirectory=%%%%b\r\nif %%%%i==lastVenv set _lastVenv=%%%%b\r\nif %%%%i==currentOutputDirectory set _currentOutputDirectory=%%%%b\r\n)"));
+
+
+	auto innerCMD = FString::Printf(TEXT("\"%%_toolDirectory%%\\optimizedSD\\optimized_txt2img.py\" %%*"));
+	auto cmd2 = FString::Printf(TEXT("%s\r\ncall conda.bat activate %%_lastVenv%%\r\nfor /f \"delims=\" %%%%i in (\'python %s --outdir=%%_currentOutputDirectory%%\') do set VARIABLE=%%%%i\r\necho %%VARIABLE%%\r\n"), *cfg, *innerCMD);
 	return cmd2;
+}
+
+FString FAI_Toolkit_InterfaceModule::generateConfigContents()
+{
+	auto installDirectory = FString::Printf(TEXT("toolDirectory=%s"), *str_toolInstallDir);
+	auto lastVenv = FString::Printf(TEXT("previousVenv=%s"), *str_currentVenv);
+	auto outputDirectory = FString::Printf(TEXT("currentOutputDirectory=%s"), *str_outputDirectory);
+	auto autoSave = FString::Printf(TEXT("autosaveSetting=%s"), bAutosave ? TEXT("true") : TEXT("false"));
+	return FString::Printf(TEXT("%s\r\n%s\r\n%s\r\n%s\r\n"), *installDirectory, *lastVenv, *outputDirectory, *autoSave);
+}
+
+void FAI_Toolkit_InterfaceModule::CheckForPluginFolder()
+{
+	IPlatformFile& FileManager = FPlatformFileManager::Get().GetPlatformFile();
+	bool folderExists = FileManager.DirectoryExists(*str_pluginDirectory);
+	if (!folderExists)
+	{
+		FileManager.CreateDirectory(*str_pluginDirectory);
+	}
 }
 
 /* generateEnvironmentBatchFile generates the batchfile required for communication between terminal, the tool, and Unreal.Default location is in the plugins folder, creates folder if not already existing.
@@ -27,14 +49,8 @@ FString FAI_Toolkit_InterfaceModule::getBatchContents(FString Venv)
 */
 FReply FAI_Toolkit_InterfaceModule::generateEnvironmentBatchFile()
 {
-	IPlatformFile& FileManager = FPlatformFileManager::Get().GetPlatformFile();
-	FString plugin_BatchFile_dir = FPaths::ConvertRelativePathToFull(FPaths::EnginePluginsDir()).Append("AI_Toolkit_Interface");
-	bool folderExists = FileManager.DirectoryExists(*plugin_BatchFile_dir);
-	if (!folderExists)
-	{
-		FileManager.CreateDirectory(*plugin_BatchFile_dir);
-	}
-	FString plugin_BatchFile_path = plugin_BatchFile_dir.Append("/aitoolkitinterface.bat");
+	CheckForPluginFolder();
+	FString plugin_BatchFile_path = FString::Printf(TEXT("%s/aitoolkitinterface.bat"), *str_pluginDirectory);
 	FFileHelper::SaveStringToFile(getBatchContents(str_currentVenv), *plugin_BatchFile_path);
 
 	str_batchFile_path = plugin_BatchFile_path;
@@ -46,7 +62,72 @@ FReply FAI_Toolkit_InterfaceModule::generateEnvironmentBatchFile()
 	return FReply::Handled();
 }
 
-FReply FAI_Toolkit_InterfaceModule::getUserDirectory()
+void FAI_Toolkit_InterfaceModule::generateConfigFile()
+{
+	CheckForPluginFolder();
+	str_iniFile_path = FString::Printf(TEXT("%s/aitoolkitinterface.ini"), *str_pluginDirectory);
+	FFileHelper::SaveStringToFile(generateConfigContents(), *str_iniFile_path);
+}
+
+FReply FAI_Toolkit_InterfaceModule::SaveConfig()
+{
+	generateConfigFile();
+	UE_LOG(LogTemp, Log, TEXT("Saved AI Toolkit Interface plugin configuration"));
+	return FReply::Handled();
+}
+
+FReply FAI_Toolkit_InterfaceModule::ReadConfigFile()
+{
+	FFileHelper::LoadFileToStringArray(iniOutput, *str_iniFile_path);
+	for (auto line : iniOutput)
+	{
+		if (line.Contains(FString("=")))
+		{
+			int idx = line.Find(FString("="));
+			auto wStr = line.LeftChop(line.Len() - idx);
+			auto outVar = line.RightChop(idx + 1);
+			if (wStr == "toolDirectory")
+			{
+				str_toolInstallDir = outVar;
+				txt_toolDirectory->SetText(FText::FromString(str_toolInstallDir));
+				bSetToolDirectory = true;
+				continue;
+			}
+			if (wStr == "previousVenv")
+			{
+				str_currentVenv = outVar;
+				txt_venvName->SetText(FText::FromString(str_currentVenv));
+				etb_VenvName->SetText(FText::FromString(str_currentVenv));
+				bSetVenvName = true;
+				continue;
+			}
+			if (wStr == "currentOutputDirectory")
+			{
+				str_outputDirectory = outVar;
+				txt_outputDirectory->SetText(FText::FromString(str_outputDirectory));
+				bSetOutputDirectory = true;
+				continue;
+			}
+			if (wStr == "autosaveSetting")
+			{
+				if (outVar.Contains("true"))
+				{
+					bAutosave = true;
+					chk_Autosave->SetIsChecked(ECheckBoxState::Checked);
+				}
+				else
+				{
+					bAutosave = true;
+					chk_Autosave->SetIsChecked(ECheckBoxState::Unchecked);
+				}
+				continue;
+			}
+		}
+	}
+	return FReply::Handled();
+}
+
+FReply FAI_Toolkit_InterfaceModule::GetToolkitInstallDirectory()
 {
 	FString out;
 	IDesktopPlatform* dsk = FDesktopPlatformModule::Get();
@@ -111,7 +192,7 @@ FReply FAI_Toolkit_InterfaceModule::SetOutputDirectory()
 		dsk->OpenDirectoryDialog(nullptr, FString("Set Output Directory"), FPaths::ProjectContentDir(), out);	//	Defaults to content directory
 	}
 	str_outputDirectory = out;
-	char* cmd1 = TCHAR_TO_ANSI(*out);
+	char* cmd1 = TCHAR_TO_ANSI(*out); 
 	txt_outputDirectory->SetText(FText::FromString(str_outputDirectory));
 	bSetOutputDirectory = true;
 
@@ -124,26 +205,43 @@ FReply FAI_Toolkit_InterfaceModule::InitiateTXT2IMG()
 	{
 		UE_LOG(LogTemp, Log, TEXT("initiated txt2img process"));
 		auto params = FString::Printf(TEXT("%s"), *str_txt2img_prompt);
-		//auto params = FString::Printf(TEXT("run -n stylegan3 gen_images.py --outdir=out --trunc=1 --seeds=2 --network=https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-afhqv2-512x512.pkl"));
-		void* testIn{ nullptr };
-		void* testOut{ nullptr };
+		void* inPipe{ nullptr };
+		void* outPipe{ nullptr };
 		FString plugin_BatchFile_dir = FPaths::ConvertRelativePathToFull(FPaths::EnginePluginsDir()).Append("AI_Toolkit_Interface");
-		verify(FPlatformProcess::CreatePipe(testIn, testOut));
-		auto proc = FPlatformProcess::CreateProc(*str_batchFile_path, *params, false, false, false, nullptr, 0, *str_toolInstallDir, testOut, testIn);
+		verify(FPlatformProcess::CreatePipe(inPipe, outPipe));
+		auto proc = FPlatformProcess::CreateProc(*str_batchFile_path, *params, false, false, false, nullptr, 0, *str_toolInstallDir, outPipe, inPipe);
 		if (proc.IsValid())
 		{
 			FString output;
 			while (FPlatformProcess::IsProcRunning(proc))
 			{
-				output += FPlatformProcess::ReadPipe(testIn);
+				output += FPlatformProcess::ReadPipe(inPipe);
 			}
-			FPlatformProcess::ClosePipe(testIn, testOut);
+			FPlatformProcess::ClosePipe(inPipe, outPipe);
 			FPlatformProcess::CloseProc(proc);
 			UE_LOG(LogTemp, Log, TEXT("%s"), *output);
 		}
 	}
 
 	return FReply::Handled();
+}
+
+void FAI_Toolkit_InterfaceModule::UpdateAutosaveStatus(ECheckBoxState InState)
+{
+	switch (InState)
+	{
+	case ECheckBoxState::Unchecked:
+		bAutosave = false;
+		break;
+
+	case ECheckBoxState::Checked:
+		bAutosave = true;
+		break;
+
+	case ECheckBoxState::Undetermined:
+		bAutosave = false;
+		break;
+	}
 }
 
 void FAI_Toolkit_InterfaceModule::StartupModule()
@@ -167,6 +265,8 @@ void FAI_Toolkit_InterfaceModule::StartupModule()
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(AI_Toolkit_InterfaceTabName, FOnSpawnTab::CreateRaw(this, &FAI_Toolkit_InterfaceModule::OnSpawnPluginTab))
 		.SetDisplayName(LOCTEXT("FAI_Toolkit_InterfaceTabTitle", "AI_Toolkit_Interface"))
 		.SetMenuType(ETabSpawnerMenuType::Hidden);
+
+	CheckForPluginFolder();
 }
 
 void FAI_Toolkit_InterfaceModule::ShutdownModule()
@@ -212,7 +312,7 @@ TSharedRef<SDockTab> FAI_Toolkit_InterfaceModule::OnSpawnPluginTab(const FSpawnT
 						+ SHorizontalBox::Slot()
 						.AutoWidth()
 						[
-							SAssignNew(etb_txt2imgPrompt, SEditableTextBox)
+							SAssignNew(etb_VenvName, SEditableTextBox)
 							.HintText(FText(LOCTEXT("venvText", "Enter python venv name here.")))
 							.OnTextCommitted(FOnTextCommitted::CreateRaw(this, &FAI_Toolkit_InterfaceModule::SetVenvName))
 						]
@@ -239,7 +339,7 @@ TSharedRef<SDockTab> FAI_Toolkit_InterfaceModule::OnSpawnPluginTab(const FSpawnT
 						.AutoWidth()
 						[
 							SAssignNew(btn_dirSearch, SButton)
-							.OnClicked(FOnClicked::CreateRaw(this, &FAI_Toolkit_InterfaceModule::getUserDirectory))
+							.OnClicked(FOnClicked::CreateRaw(this, &FAI_Toolkit_InterfaceModule::GetToolkitInstallDirectory))
 							.Text(FText(LOCTEXT("btnText", "Search for Tool Directory")))
 						]
 						+ SHorizontalBox::Slot()
@@ -285,7 +385,41 @@ TSharedRef<SDockTab> FAI_Toolkit_InterfaceModule::OnSpawnPluginTab(const FSpawnT
 					[
 						SAssignNew(btn_txt2img, SButton)
 						.Text(FText(LOCTEXT("btnTXT2IMG", "Generate image (txt2img)")))
-					.OnClicked(FOnClicked::CreateRaw(this, &FAI_Toolkit_InterfaceModule::InitiateTXT2IMG))
+						.OnClicked(FOnClicked::CreateRaw(this, &FAI_Toolkit_InterfaceModule::InitiateTXT2IMG))
+					]
+				+ SVerticalBox::Slot()
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							SAssignNew(chk_Autosave, SCheckBox)
+							.OnCheckStateChanged(FOnCheckStateChanged::CreateRaw(this, &FAI_Toolkit_InterfaceModule::UpdateAutosaveStatus))
+						]
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.Text(FText(LOCTEXT("txt_Autosave", "Enable Autosave Config")))
+						]
+					]
+				+ SVerticalBox::Slot()
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+							.AutoWidth()
+						[
+							SNew(SButton)
+							.Text(FText(LOCTEXT("btn_LoadConfig", "Load Config")))
+							.OnClicked(FOnClicked::CreateRaw(this, &FAI_Toolkit_InterfaceModule::ReadConfigFile))
+						]
+						+ SHorizontalBox::Slot()
+							.AutoWidth()
+						[
+							SNew(SButton)
+							.Text(FText(LOCTEXT("btn_SaveConfig", "Save Config")))
+							.OnClicked(FOnClicked::CreateRaw(this, &FAI_Toolkit_InterfaceModule::SaveConfig))
+						]
 					]
 			]
 		];

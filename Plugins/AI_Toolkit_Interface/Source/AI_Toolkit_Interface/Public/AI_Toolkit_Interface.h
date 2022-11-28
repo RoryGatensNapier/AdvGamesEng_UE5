@@ -22,13 +22,21 @@ public:
 	/** This function will be bound to Command (by default it will bring up plugin window) */
 	void PluginButtonClicked();
 
-	FReply getUserDirectory();
+	FReply GetToolkitInstallDirectory();
 	FReply InitiateTXT2IMG();
 	void SetTXT2IMGPrompt(const FText&, ETextCommit::Type);
 	void SetVenvName(const FText&, ETextCommit::Type);
 	FString getBatchContents(FString Venv);
 	FReply generateEnvironmentBatchFile();
 	FReply SetOutputDirectory();
+
+	void generateConfigFile();
+	FString generateConfigContents();
+	FReply ReadConfigFile();
+	FReply SaveConfig();
+	void UpdateAutosaveStatus(ECheckBoxState InState);
+
+	void CheckForPluginFolder();
 	
 private:
 
@@ -50,13 +58,21 @@ private:
 	TSharedPtr<STextBlock> txt_outputDirectory;	//	Directory string display
 	TSharedPtr<STextBlock> txt_venvName;	//	Venv string display
 
+	TSharedPtr<SEditableTextBox> etb_VenvName;	//	Text input box for current venv name
 	TSharedPtr<SEditableTextBox> etb_txt2imgPrompt;	//	Text input box for txt2img prompt
 
+	TSharedPtr<SCheckBox> chk_Autosave;
+
+
+	FString str_pluginDirectory{ FPaths::ConvertRelativePathToFull(FPaths::EnginePluginsDir()).Append("AI_Toolkit_Interface") };
 	FString str_toolInstallDir{ FString("Directory not set!") };	// Install directory string
 	FString str_txt2img_prompt{ FString() };	//	Text 2 image prompt string, passed to bat
 	FString str_currentVenv{ FString("Venv name not set!")};	//	Current Venv name string
-	FString str_batchFile_path{ FString() };	//	Path to batchfile
+	FString str_batchFile_path{ FString::Printf(TEXT("%s/aitoolkitinterface.bat"), *str_pluginDirectory) };	//	Path to batchfile
+	FString str_iniFile_path{ FString::Printf(TEXT("%s/aitoolkitinterface.ini"), *str_pluginDirectory) };
 	FString str_outputDirectory{ FString("Output directory not set!") };	// Path to output directory
+
+	TArray<FString> iniOutput;
 
 private:
 
@@ -64,5 +80,5 @@ private:
 	bool bSetOutputDirectory{ false };	//	True when the output directory has been set
 	bool bSetTXT2IMGPrompt{ false };	//	True when valid text is set in the txt2img prompt text box
 	bool bSetVenvName{ false };	//	True when Venv name has been set in the environmnet name box
-
+	bool bAutosave{ true };
 };
