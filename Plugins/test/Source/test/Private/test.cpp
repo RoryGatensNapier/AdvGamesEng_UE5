@@ -27,7 +27,7 @@ FReply FtestModule::DirFunc()
 	}
 	installDir = out;
 	char* cmd1 = TCHAR_TO_ANSI(*out);
-	dirText->SetText(FText::FromString(installDir));
+	txt_toolDirectory->SetText(FText::FromString(installDir));
 	bSetDirectory = true;
 	//auto the_cmd = *FString::Printf(TEXT("py '%s'"), installDir);
 	//auto test = FString::Printf(TEXT("\"%s/webui-user.bat\""), *installDir);
@@ -129,7 +129,7 @@ TSharedRef<SDockTab> FtestModule::OnSpawnPluginTab(const FSpawnTabArgs& SpawnTab
 				.HAlign(HAlign_Fill)
 				.VAlign(VAlign_Top)
 				[
-					SAssignNew(dirSearch, SButton)
+					SAssignNew(btn_dirSearch, SButton)
 					.HAlign(HAlign_Fill)
 				.VAlign(VAlign_Top)
 				.OnClicked(FOnClicked::CreateRaw(this, &FtestModule::DirFunc))
@@ -140,13 +140,13 @@ TSharedRef<SDockTab> FtestModule::OnSpawnPluginTab(const FSpawnTabArgs& SpawnTab
 				.HAlign(HAlign_Fill)
 				.VAlign(VAlign_Fill)
 				[
-					SAssignNew(dirText, STextBlock)
+					SAssignNew(txt_toolDirectory, STextBlock)
 					.Text(FText::FromString(installDir))
 				]
 
 				+ SVerticalBox::Slot()
 				[
-					SAssignNew(txt2img_prompt, SEditableTextBox)
+					SAssignNew(etb_txt2imgPrompt, SEditableTextBox)
 					.HintText(FText(LOCTEXT("hintTXT2IMG","Text prompt for txt2img")))
 					.OnTextCommitted(FOnTextCommitted::CreateRaw(this, &FtestModule::SetTXT2IMGPrompt))
 				]

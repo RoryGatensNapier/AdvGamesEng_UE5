@@ -28,6 +28,7 @@ public:
 	void SetVenvName(const FText&, ETextCommit::Type);
 	FString getBatchContents(FString Venv);
 	FReply generateEnvironmentBatchFile();
+	FReply SetOutputDirectory();
 	
 private:
 
@@ -39,23 +40,29 @@ private:
 	TSharedPtr<class FUICommandList> PluginCommands;
 
 	// Window slate elements
-	TSharedPtr<SButton> dirSearch;	//	Button to set directory for Stable Diffusion installation
-	TSharedPtr<STextBlock> dirText;	//	Directory string display
-	TSharedPtr<STextBlock> VenvText;	//	Directory string display
-	TSharedPtr<SEditableTextBox> txt2img_prompt;	//	Text input box for txt2img prompt
-	TSharedPtr<SButton> txt2img_btn;	// Button to initiate txt2img with prompt
-	TSharedPtr<SButton> genBatBtn;	// Button to initiate txt2img with prompt
+	TSharedPtr<SButton> btn_dirSearch;	//	Button to set directory for Stable Diffusion installation
+	TSharedPtr<SButton> btn_outputDirectorySearch;	//	Button to set output directory for resultant samples
+	TSharedPtr<SButton> btn_txt2img;	// Button to initiate txt2img with prompt
+	TSharedPtr<SButton> btn_generateBatch;	// Button to initiate txt2img with prompt
 
-	// Install directory string
-	FString str_toolInstallDir{ FString("Directory not set!") };
-	FString str_txt2img_prompt{ FString() };
-	FString str_currentVenv{ FString("Venv name not set!")};
-	FString str_batchFile_path{ FString() };
+
+	TSharedPtr<STextBlock> txt_toolDirectory;	//	Directory string display
+	TSharedPtr<STextBlock> txt_outputDirectory;	//	Directory string display
+	TSharedPtr<STextBlock> txt_venvName;	//	Venv string display
+
+	TSharedPtr<SEditableTextBox> etb_txt2imgPrompt;	//	Text input box for txt2img prompt
+
+	FString str_toolInstallDir{ FString("Directory not set!") };	// Install directory string
+	FString str_txt2img_prompt{ FString() };	//	Text 2 image prompt string, passed to bat
+	FString str_currentVenv{ FString("Venv name not set!")};	//	Current Venv name string
+	FString str_batchFile_path{ FString() };	//	Path to batchfile
+	FString str_outputDirectory{ FString("Output directory not set!") };	// Path to output directory
 
 private:
-	//	True when directory for Stable Diffusion has been set
-	bool bSetDirectory{ false };
-	bool bSetTXT2IMGPrompt{ false };
-	bool bSetVenvName{ false };
+
+	bool bSetToolDirectory{ false };	//	True when directory for Stable Diffusion has been set
+	bool bSetOutputDirectory{ false };	//	True when the output directory has been set
+	bool bSetTXT2IMGPrompt{ false };	//	True when valid text is set in the txt2img prompt text box
+	bool bSetVenvName{ false };	//	True when Venv name has been set in the environmnet name box
 
 };

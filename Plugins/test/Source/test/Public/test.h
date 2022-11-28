@@ -34,9 +34,9 @@ private:
 	TSharedPtr<class FUICommandList> PluginCommands;
 	
 	// Window slate elements
-	TSharedPtr<SButton> dirSearch;	//	Button to set directory for Stable Diffusion installation
-	TSharedPtr<STextBlock> dirText;	//	Directory string display
-	TSharedPtr<SEditableTextBox> txt2img_prompt;	//	Text input box for txt2img prompt
+	TSharedPtr<SButton> btn_dirSearch;	//	Button to set directory for Stable Diffusion installation
+	TSharedPtr<STextBlock> txt_toolDirectory;	//	Directory string display
+	TSharedPtr<SEditableTextBox> etb_txt2imgPrompt;	//	Text input box for txt2img prompt
 	TSharedPtr<SButton> txt2img_btn;	// Button to initiate txt2img with prompt
 
 	// Install directory string
