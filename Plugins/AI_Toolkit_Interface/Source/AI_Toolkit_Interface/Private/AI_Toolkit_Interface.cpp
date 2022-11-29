@@ -17,11 +17,10 @@ static const FName AI_Toolkit_InterfaceTabName("AI_Toolkit_Interface");
 FString FAI_Toolkit_InterfaceModule::getBatchContents(FString Venv)
 {
 	//auto innerCMD = FString::Printf(TEXT("\"%s\\optimizedSD\\optimized_txt2img.py\" --prompt \"%s\" --H 512 --W 512 --seed 69 --n_iter 2 --n_samples 5 --ddim_steps 50"), *str_toolInstallDir, *str_txt2img_prompt);
-	auto cfg = FString::Printf(TEXT("for /f \"tokens=1,2 delims=\" %%%%i in (\'aitoolkitinterface.ini') do (\r\nif %%%%i==toolDirectory set _toolDirectory=%%%%b\r\nif %%%%i==lastVenv set _lastVenv=%%%%b\r\nif %%%%i==currentOutputDirectory set _currentOutputDirectory=%%%%b\r\n)"));
-
-
-	auto innerCMD = FString::Printf(TEXT("\"%%_toolDirectory%%\\optimizedSD\\optimized_txt2img.py\" %%*"));
-	auto cmd2 = FString::Printf(TEXT("%s\r\ncall conda.bat activate %%_lastVenv%%\r\nfor /f \"delims=\" %%%%i in (\'python %s --outdir=%%_currentOutputDirectory%%\') do set VARIABLE=%%%%i\r\necho %%VARIABLE%%\r\n"), *cfg, *innerCMD);
+	auto cfg = FString::Printf(TEXT("for /f \"tokens=1,2 delims==\" %%%%a in (%s/aitoolkitinterface.ini) do (\r\nif %%%%a==toolDirectory set toolDirectory=%%%%b\r\nif %%%%a==previousVenv set previousVenv=%%%%b\r\nif %%%%a==currentOutputDirectory set currentOutputDirectory=%%%%b\r\n)"), *str_pluginDirectory);
+	//auto debug = FString::Printf(TEXT("echo %%_toolDirectory\r\necho %%_previousVenv%%\r\necho %%_currentOutputDirectory%%\r\n"));
+	auto innerCMD = FString::Printf(TEXT("\"%%toolDirectory%%\\optimizedSD\\optimized_txt2img.py\" %%*"));
+	auto cmd2 = FString::Printf(TEXT("%s\r\ncall conda.bat activate %%previousVenv%%\r\nfor /f \"delims=\" %%%%i in (\'python %s --outdir=\"%%currentOutputDirectory%%\"\') do set VARIABLE=%%%%i\r\necho %%VARIABLE%%\r\n"), *cfg,/**debug,*/ *innerCMD);
 	return cmd2;
 }
 
@@ -140,6 +139,11 @@ FReply FAI_Toolkit_InterfaceModule::GetToolkitInstallDirectory()
 	txt_toolDirectory->SetText(FText::FromString(str_toolInstallDir));
 	bSetToolDirectory = true;
 
+	if (bAutosave)
+	{
+		generateConfigFile();
+	}
+
 	return FReply::Handled();
 }
 
@@ -180,6 +184,10 @@ void FAI_Toolkit_InterfaceModule::SetVenvName(const FText& InText, ETextCommit::
 		bSetVenvName = false;
 	}
 	txt_venvName->SetText(FText::FromString(dispTxt));
+	if (bAutosave)
+	{
+		generateConfigFile();
+	}
 }
 
 FReply FAI_Toolkit_InterfaceModule::SetOutputDirectory()
@@ -195,6 +203,11 @@ FReply FAI_Toolkit_InterfaceModule::SetOutputDirectory()
 	char* cmd1 = TCHAR_TO_ANSI(*out); 
 	txt_outputDirectory->SetText(FText::FromString(str_outputDirectory));
 	bSetOutputDirectory = true;
+
+	if (bAutosave)
+	{
+		generateConfigFile();
+	}
 
 	return FReply::Handled();
 }
