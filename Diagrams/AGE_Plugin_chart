@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2022-12-01T16:03:53.937Z" agent="5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36" etag="59xxN94Bjj-XDRieIJTX" version="20.6.0" type="github">
+<mxfile host="app.diagrams.net" modified="2022-12-01T16:06:23.835Z" agent="5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36" etag="gjgU1Uk_QjTpLk0S4nI2" version="20.6.0" type="github">
   <diagram id="yVsb4wbALrcT60f4i08j" name="Page-1">
     <mxGraphModel dx="2426" dy="1358" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
@@ -146,7 +146,7 @@
           <mxGeometry x="1081" y="500" width="100" height="100" as="geometry" />
         </mxCell>
         <mxCell id="yWuREBOh3QBv5iB8SAIS-6" value="Transfer control to &lt;br&gt;plugin window framework" style="verticalLabelPosition=bottom;verticalAlign=top;html=1;strokeWidth=2;shape=mxgraph.arrows2.arrow;dy=0.6;dx=40;notch=0;" parent="1" vertex="1">
-          <mxGeometry x="1541" y="97.5" width="100" height="70" as="geometry" />
+          <mxGeometry x="1267" y="97.5" width="100" height="70" as="geometry" />
         </mxCell>
         <mxCell id="yWuREBOh3QBv5iB8SAIS-13" value="Saving" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;" parent="1" source="yWuREBOh3QBv5iB8SAIS-10" target="yWuREBOh3QBv5iB8SAIS-12" edge="1">
           <mxGeometry relative="1" as="geometry" />
