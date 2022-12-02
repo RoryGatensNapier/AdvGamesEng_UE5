@@ -3,6 +3,7 @@
 #include "AI_Toolkit_Interface.h"
 #include "AI_Toolkit_InterfaceStyle.h"
 #include "AI_Toolkit_InterfaceCommands.h"
+#include "Editor.h"
 #include "LevelEditor.h"
 #include <Misc/FileHelper.h>
 #include "Widgets/Docking/SDockTab.h"
@@ -14,26 +15,33 @@ static const FName AI_Toolkit_InterfaceTabName("AI_Toolkit_Interface");
 
 #define LOCTEXT_NAMESPACE "FAI_Toolkit_InterfaceModule"
 
+/* getBatchContents creates the contents of the batch file for the creation process to write to the file. The comannds are built separately and are joined to return the full contents
+*/
 FString FAI_Toolkit_InterfaceModule::getBatchContents(FString Venv)
 {
-	//auto innerCMD = FString::Printf(TEXT("\"%s\\optimizedSD\\optimized_txt2img.py\" --prompt \"%s\" --H 512 --W 512 --seed 69 --n_iter 2 --n_samples 5 --ddim_steps 50"), *str_toolInstallDir, *str_txt2img_prompt);
-	auto cfg = FString::Printf(TEXT("for /f \"tokens=1,2 delims==\" %%%%a in (%s/aitoolkitinterface.ini) do (\r\nif %%%%a==toolDirectory set toolDirectory=%%%%b\r\nif %%%%a==previousVenv set previousVenv=%%%%b\r\nif %%%%a==currentOutputDirectory set currentOutputDirectory=%%%%b\r\n)\r\n"), *str_pluginDirectory);
+	auto cfg = FString::Printf(TEXT("for /f \"tokens=1,2 delims==\" %%%%a in (%s/aitoolkitinterface.ini) do (\r\nif %%%%a==toolDirectory set toolDirectory=%%%%b\r\nif %%%%a==previousVenv set previousVenv=%%%%b\r\nif %%%%a==currentOutputDirectory set currentOutputDirectory=%%%%b\r\nif %%%%a==scriptPath set scriptPath=%%%%b\r\nif %%%%a==imagePromptPath set imagePromptPath=%%%%b\r\n)\r\n"), *str_pluginDirectory);
 	auto debug = FString::Printf(TEXT("echo %%toolDirectory%%\r\necho %%previousVenv%%\r\necho %%currentOutputDirectory%%\r\n"));
-	auto innerCMD = FString::Printf(TEXT("\"%%toolDirectory%%\\optimizedSD\\optimized_txt2img.py\" %%*"));
+	auto innerCMD = FString::Printf(TEXT("\"%%scriptPath%%\" %%*"));
 	auto cmd2 = FString::Printf(TEXT("%s\r\ncall conda.bat activate %%previousVenv%%\r\nfor /f \"delims=\" %%%%i in (\'python %s --outdir=\"%%currentOutputDirectory%%\"\') do set VARIABLE=%%%%i\r\necho %%VARIABLE%%\r\n"), *cfg, *innerCMD);
-	//auto cmd2 = FString::Printf(TEXT("%s%s\r\n"), *cfg, *debug);
 	return cmd2;
 }
+
+/* getBatchContents creates the contents of the .ini file for the creation process to write to the file. Each variable is built separately then joined to return the full variable list
+*/
 
 FString FAI_Toolkit_InterfaceModule::generateConfigContents()
 {
 	auto installDirectory = FString::Printf(TEXT("toolDirectory=%s"), *str_toolInstallDir);
+	auto scriptPath = FString::Printf(TEXT("scriptPath=%s"), *str_scriptPath);
+	auto imagePromptPath = FString::Printf(TEXT("imagePromptPath=%s"), *str_imgPromptPath);
 	auto lastVenv = FString::Printf(TEXT("previousVenv=%s"), *str_currentVenv);
 	auto outputDirectory = FString::Printf(TEXT("currentOutputDirectory=%s"), *str_outputDirectory);
 	auto autoSave = FString::Printf(TEXT("autosaveSetting=%s"), bAutosave ? TEXT("true") : TEXT("false"));
-	return FString::Printf(TEXT("%s\r\n%s\r\n%s\r\n%s\r\n"), *installDirectory, *lastVenv, *outputDirectory, *autoSave);
+	return FString::Printf(TEXT("%s\r\n%s\r\n%s\r\n%s\r\n%s\r\n%s\r\n"), *installDirectory, *scriptPath, *lastVenv, *outputDirectory, *imagePromptPath,*autoSave);
 }
 
+/* CheckForPluginsFolder checks for the the required folder in the engine plugin directory, and creates it if not already available
+*/
 void FAI_Toolkit_InterfaceModule::CheckForPluginFolder()
 {
 	IPlatformFile& FileManager = FPlatformFileManager::Get().GetPlatformFile();
@@ -44,10 +52,10 @@ void FAI_Toolkit_InterfaceModule::CheckForPluginFolder()
 	}
 }
 
-/* generateEnvironmentBatchFile generates the batchfile required for communication between terminal, the tool, and Unreal.Default location is in the plugins folder, creates folder if not already existing.
+/* generateBatchFile generates the batchfile required for communication between terminal, the tool, and Unreal.Default location is in the plugins folder, creates folder if not already existing.
 *  Generating a new batchfile is required when the environment name is changed, which will overwrite the current file.
 */
-FReply FAI_Toolkit_InterfaceModule::generateEnvironmentBatchFile()
+FReply FAI_Toolkit_InterfaceModule::generateBatchFile()
 {
 	CheckForPluginFolder();
 	FString plugin_BatchFile_path = FString::Printf(TEXT("%s/aitoolkitinterface.bat"), *str_pluginDirectory);
@@ -55,13 +63,11 @@ FReply FAI_Toolkit_InterfaceModule::generateEnvironmentBatchFile()
 
 	str_batchFile_path = plugin_BatchFile_path;
 
-	FString dispTxt{ FString() };
-	dispTxt = FString::Printf(TEXT("Environment set to: %s - Batch file OK"), *str_currentVenv);
-	txt_venvName->SetText(FText::FromString(dispTxt));
-
 	return FReply::Handled();
 }
 
+/* generateConfigFile writes the contents of the configuration file with the latest variable values to a file in the working plugin folder
+*/
 void FAI_Toolkit_InterfaceModule::generateConfigFile()
 {
 	CheckForPluginFolder();
@@ -69,6 +75,8 @@ void FAI_Toolkit_InterfaceModule::generateConfigFile()
 	FFileHelper::SaveStringToFile(generateConfigContents(), *str_iniFile_path);
 }
 
+/* SaveConfig saves the tool's configuration to disk and logs
+*/
 FReply FAI_Toolkit_InterfaceModule::SaveConfig()
 {
 	generateConfigFile();
@@ -76,6 +84,8 @@ FReply FAI_Toolkit_InterfaceModule::SaveConfig()
 	return FReply::Handled();
 }
 
+/* ReadConfigfile parses the values within the plugin configuration file and loads them into their respective variables
+*/
 FReply FAI_Toolkit_InterfaceModule::ReadConfigFile()
 {
 	FFileHelper::LoadFileToStringArray(iniOutput, *str_iniFile_path);
@@ -96,7 +106,7 @@ FReply FAI_Toolkit_InterfaceModule::ReadConfigFile()
 			if (wStr == "previousVenv")
 			{
 				str_currentVenv = outVar;
-				txt_venvName->SetText(FText::FromString(str_currentVenv));
+				txt_venvName->SetText(FText::FromString(FString::Printf(TEXT("Environment set to: %s"), *str_currentVenv)));
 				etb_VenvName->SetText(FText::FromString(str_currentVenv));
 				bSetVenvName = true;
 				continue;
@@ -106,6 +116,20 @@ FReply FAI_Toolkit_InterfaceModule::ReadConfigFile()
 				str_outputDirectory = outVar;
 				txt_outputDirectory->SetText(FText::FromString(str_outputDirectory));
 				bSetOutputDirectory = true;
+				continue;
+			}
+			if (wStr == "scriptPath")
+			{
+				str_scriptPath = outVar;
+				txt_scriptPath->SetText(FText::FromString(str_scriptPath));
+				bSetScriptPath = true;
+				continue;
+			}
+			if (wStr == "imagePromptPath")
+			{
+				str_imgPromptPath = outVar;
+				txt_imgPrompt->SetText(FText::FromString(str_imgPromptPath));
+				bSetImagePrompt = true;
 				continue;
 			}
 			if (wStr == "autosaveSetting")
@@ -127,6 +151,8 @@ FReply FAI_Toolkit_InterfaceModule::ReadConfigFile()
 	return FReply::Handled();
 }
 
+/*	GetToolkInstallDirectory() creates a directory prompt that relays back the address to the selected tool installation
+*/
 FReply FAI_Toolkit_InterfaceModule::GetToolkitInstallDirectory()
 {
 	FString out;
@@ -134,7 +160,7 @@ FReply FAI_Toolkit_InterfaceModule::GetToolkitInstallDirectory()
 	if (dsk)
 	{
 		uint32 SelectionFlag = 0; //A value of 0 represents single file selection while a value of 1 represents multiple file selection
-		dsk->OpenDirectoryDialog(nullptr, FString("Stable Diffusion Path"), FString("C:"), out);
+		dsk->OpenDirectoryDialog(nullptr, FString("Tool Path"), FString("C:"), out);
 	}
 	str_toolInstallDir = out;
 	txt_toolDirectory->SetText(FText::FromString(str_toolInstallDir));
@@ -148,7 +174,54 @@ FReply FAI_Toolkit_InterfaceModule::GetToolkitInstallDirectory()
 	return FReply::Handled();
 }
 
-void FAI_Toolkit_InterfaceModule::SetTXT2IMGPrompt(const FText& InText, ETextCommit::Type CommitType)
+/*	SetScriptPath() creates a file prompt that relays back the address to the selected script for execution
+*/
+FReply FAI_Toolkit_InterfaceModule::SetScriptPath()
+{
+	TArray<FString> out;
+	IDesktopPlatform* dsk = FDesktopPlatformModule::Get();
+	if (dsk)
+	{
+		uint32 SelectionFlag = 0; //A value of 0 represents single file selection while a value of 1 represents multiple file selection
+		dsk->OpenFileDialog(nullptr, FString("Image Path"), FString("C:"), FString(), FString("Scripts|*.py; *.bat;"), EFileDialogFlags::None, out);
+	}
+	str_scriptPath = out.IsEmpty() ? FString() : FPaths::ConvertRelativePathToFull(out[0]);
+	txt_scriptPath->SetText(FText::FromString(FPaths::ConvertRelativePathToFull(str_scriptPath)));
+	bSetScriptPath = str_scriptPath.IsEmpty() ? false : true;
+
+	if (bAutosave)
+	{
+		generateConfigFile();
+	}
+
+	return FReply::Handled();
+}
+
+/*	SetImagePrompt() creates a file prompt that relays back the address to the selected image to use as a parameter for execution
+*/
+FReply FAI_Toolkit_InterfaceModule::SetImagePrompt()
+{
+	TArray<FString> out;
+	IDesktopPlatform* dsk = FDesktopPlatformModule::Get();
+	if (dsk)
+	{
+		uint32 SelectionFlag = 0; //A value of 0 represents single file selection while a value of 1 represents multiple file selection
+		dsk->OpenFileDialog(nullptr, FString("Image Path"), FString("C:"), FString(), FString("Photo Types|*.png; *.jpg; *.jpeg;"), EFileDialogFlags::None, out);
+	}
+	str_imgPromptPath = out.IsEmpty() ? FString() : FPaths::ConvertRelativePathToFull(out[0]);
+	txt_imgPrompt->SetText(FText::FromString(str_imgPromptPath));
+	bSetImagePrompt = str_imgPromptPath.IsEmpty() ? false : true;
+	bSetTXT2IMGPrompt = bSetImagePrompt;
+
+	if (bAutosave)
+	{
+		generateConfigFile();
+	}
+
+	return FReply::Handled();
+}
+
+void FAI_Toolkit_InterfaceModule::SetTextPrompt(const FText& InText, ETextCommit::Type CommitType)
 {
 	if ((CommitType == ETextCommit::OnEnter || CommitType == ETextCommit::OnUserMovedFocus) && !InText.IsEmpty())
 	{
@@ -167,15 +240,8 @@ void FAI_Toolkit_InterfaceModule::SetVenvName(const FText& InText, ETextCommit::
 	FString dispTxt{ FString() };
 	if ((CommitType == ETextCommit::OnEnter || CommitType == ETextCommit::OnUserMovedFocus) && !InText.IsEmpty())
 	{
-		if (str_currentVenv != InText.ToString())
-		{
-			str_currentVenv = InText.ToString();
-			dispTxt = FString::Printf(TEXT("Environment set to: %s - Please regenerate batchfile!"), *str_currentVenv);
-		}
-		else
-		{
-			dispTxt = FString::Printf(TEXT("Environment set to: %s - Batch file OK"), *str_currentVenv);
-		}
+		str_currentVenv = InText.ToString();
+		dispTxt = FString::Printf(TEXT("Environment set to: %s"), *str_currentVenv);
 		bSetVenvName = true;
 	}
 	else if (InText.IsEmpty())
@@ -213,17 +279,22 @@ FReply FAI_Toolkit_InterfaceModule::SetOutputDirectory()
 	return FReply::Handled();
 }
 
-FReply FAI_Toolkit_InterfaceModule::InitiateTXT2IMG()
+FReply FAI_Toolkit_InterfaceModule::InitiateScript()
 {
-	if (bSetTXT2IMGPrompt)
+	if ((bSetTXT2IMGPrompt || bSetImagePrompt) && bSetScriptPath)
 	{
+		generateConfigFile();
 		UE_LOG(LogTemp, Log, TEXT("initiated txt2img process"));
-		auto params = FString::Printf(TEXT("%s"), *str_txt2img_prompt);
+		if (bSetImagePrompt)
+		{
+			FString prompt = FString::Printf(TEXT("--init-img=\"%s\""), *str_imgPromptPath);
+			str_txt2img_prompt = FString::Printf(TEXT("%s %s"), *str_txt2img_prompt, *prompt);
+		}
 		void* inPipe{ nullptr };
 		void* outPipe{ nullptr };
 		FString plugin_BatchFile_dir = FPaths::ConvertRelativePathToFull(FPaths::EnginePluginsDir()).Append("AI_Toolkit_Interface");
 		verify(FPlatformProcess::CreatePipe(inPipe, outPipe));
-		auto proc = FPlatformProcess::CreateProc(*str_batchFile_path, *params, false, false, false, nullptr, 0, *str_toolInstallDir, outPipe, inPipe);
+		auto proc = FPlatformProcess::CreateProc(*str_batchFile_path, *str_txt2img_prompt, false, false, false, nullptr, 0, *str_toolInstallDir, outPipe, inPipe);
 		if (proc.IsValid())
 		{
 			FString output;
@@ -235,6 +306,10 @@ FReply FAI_Toolkit_InterfaceModule::InitiateTXT2IMG()
 			FPlatformProcess::CloseProc(proc);
 			UE_LOG(LogTemp, Log, TEXT("%s"), *output);
 		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Check params and configuration! Script Set? = %s / Set Text Prompt? = %s / Set Image Prompt? = %s"), bSetScriptPath, bSetTXT2IMGPrompt, bSetImagePrompt);
 	}
 
 	return FReply::Handled();
@@ -281,6 +356,7 @@ void FAI_Toolkit_InterfaceModule::StartupModule()
 		.SetMenuType(ETabSpawnerMenuType::Hidden);
 
 	CheckForPluginFolder();
+	generateBatchFile();
 }
 
 void FAI_Toolkit_InterfaceModule::ShutdownModule()
@@ -332,6 +408,7 @@ TSharedRef<SDockTab> FAI_Toolkit_InterfaceModule::OnSpawnPluginTab(const FSpawnT
 						]
 						+ SHorizontalBox::Slot()
 						.FillWidth(1)
+						.Padding(10, 0, 0, 0)
 						[
 							SAssignNew(txt_venvName, STextBlock)
 							.Text(FText::FromString(str_currentVenv))
@@ -339,14 +416,7 @@ TSharedRef<SDockTab> FAI_Toolkit_InterfaceModule::OnSpawnPluginTab(const FSpawnT
 						]
 					]
 				+ SVerticalBox::Slot()
-					[
-						SAssignNew(btn_generateBatch, SButton)
-						.Text(FText(LOCTEXT("btnGenBatch", "Generate batch file")))
-						.OnClicked(FOnClicked::CreateRaw(this, &FAI_Toolkit_InterfaceModule::generateEnvironmentBatchFile))
-					]
-				+ SVerticalBox::Slot()
-					.HAlign(HAlign_Fill)
-					.VAlign(VAlign_Top)
+					.AutoHeight()
 					[
 						SNew(SHorizontalBox)
 						+ SHorizontalBox::Slot()
@@ -358,9 +428,30 @@ TSharedRef<SDockTab> FAI_Toolkit_InterfaceModule::OnSpawnPluginTab(const FSpawnT
 						]
 						+ SHorizontalBox::Slot()
 						.FillWidth(1)
+						.Padding(10, 0, 0, 0)
 						[
 							SAssignNew(txt_toolDirectory, STextBlock)
 							.Text(FText::FromString(str_toolInstallDir))
+							.AutoWrapText(true)
+						]
+					]
+				+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							SAssignNew(btn_scriptSearch, SButton)
+							.OnClicked(FOnClicked::CreateRaw(this, &FAI_Toolkit_InterfaceModule::SetScriptPath))
+							.Text(FText(LOCTEXT("btn_script", "Search for Script Path")))
+						]
+						+ SHorizontalBox::Slot()
+						.FillWidth(1)
+						.Padding(10, 0, 0, 0)
+						[
+							SAssignNew(txt_scriptPath, STextBlock)
+							.Text(FText::FromString(str_scriptPath))
 							.AutoWrapText(true)
 						]
 					]
@@ -374,7 +465,27 @@ TSharedRef<SDockTab> FAI_Toolkit_InterfaceModule::OnSpawnPluginTab(const FSpawnT
 					[
 						SAssignNew(etb_txt2imgPrompt, SEditableTextBox)
 						.HintText(FText(LOCTEXT("hintTXT2IMG", "Text prompt for txt2img")))
-						.OnTextCommitted(FOnTextCommitted::CreateRaw(this, &FAI_Toolkit_InterfaceModule::SetTXT2IMGPrompt))
+						.OnTextCommitted(FOnTextCommitted::CreateRaw(this, &FAI_Toolkit_InterfaceModule::SetTextPrompt))
+					]
+				+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							SNew(SButton)
+							.OnClicked(FOnClicked::CreateRaw(this, &FAI_Toolkit_InterfaceModule::SetImagePrompt))
+							.Text(FText(LOCTEXT("btn_imgPrompt", "Set Image Prompt")))
+						]
+						+ SHorizontalBox::Slot()
+						.FillWidth(1)
+						.Padding(10, 0, 0, 0)
+						[
+							SAssignNew(txt_imgPrompt, STextBlock)
+							.Text(FText::FromString(str_imgPromptPath))
+							.AutoWrapText(true)
+						]
 					]
 				+ SVerticalBox::Slot()
 					[
@@ -387,7 +498,8 @@ TSharedRef<SDockTab> FAI_Toolkit_InterfaceModule::OnSpawnPluginTab(const FSpawnT
 							.OnClicked(FOnClicked::CreateRaw(this, &FAI_Toolkit_InterfaceModule::SetOutputDirectory))
 						]
 						+ SHorizontalBox::Slot()
-						.HAlign(HAlign_Fill)
+						.FillWidth(1)
+						.Padding(10, 0, 0, 0)
 						[
 							SAssignNew(txt_outputDirectory, STextBlock)
 							.Text(FText::FromString(str_outputDirectory))
@@ -399,7 +511,7 @@ TSharedRef<SDockTab> FAI_Toolkit_InterfaceModule::OnSpawnPluginTab(const FSpawnT
 					[
 						SAssignNew(btn_txt2img, SButton)
 						.Text(FText(LOCTEXT("btnTXT2IMG", "Generate image (txt2img)")))
-						.OnClicked(FOnClicked::CreateRaw(this, &FAI_Toolkit_InterfaceModule::InitiateTXT2IMG))
+						.OnClicked(FOnClicked::CreateRaw(this, &FAI_Toolkit_InterfaceModule::InitiateScript))
 					]
 				+ SVerticalBox::Slot()
 					[
@@ -411,7 +523,8 @@ TSharedRef<SDockTab> FAI_Toolkit_InterfaceModule::OnSpawnPluginTab(const FSpawnT
 							.OnCheckStateChanged(FOnCheckStateChanged::CreateRaw(this, &FAI_Toolkit_InterfaceModule::UpdateAutosaveStatus))
 						]
 						+ SHorizontalBox::Slot()
-						.AutoWidth()
+						.FillWidth(1)
+						.Padding(10, 0 ,0 ,0)
 						[
 							SNew(STextBlock)
 							.Text(FText(LOCTEXT("txt_Autosave", "Enable Autosave Config")))
