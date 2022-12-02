@@ -81,7 +81,7 @@ private:
 	FString str_iniFile_path{ FString::Printf(TEXT("%s/aitoolkitinterface.ini"), *str_pluginDirectory) };
 	FString str_outputDirectory{ FString("Output directory not set!") };	// Path to output directory
 	FString str_scriptPath{ FString("Script Folder not set!") };
-	FString str_imgPromptPath{ FString("Image Prompt not set!") };
+	FString str_imgPromptPath{ FString() };
 
 	TArray<FString> iniOutput;
 
